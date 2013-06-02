@@ -14,3 +14,4 @@ More sources for commands/api:
 - https://groups.google.com/forum/?fromgroups#!topic/fhem-users/MhCQkE43AR4
 - http://fhem.de/fhem.html#Download
 - https://yavc.codeplex.com/SourceControl/latest#1120666
+- "RX AX10 VX71 Series Function Tree.xls"
