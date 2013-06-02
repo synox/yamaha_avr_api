@@ -32,15 +32,15 @@ void YamahaControl::runCommand(vector<string> options, string value) {
     }
 
 
-    optionString.insert(0, "<YAMAHA_AV cmd=\\\"PUT\\\">");
+    optionString.insert(0, R"(<YAMAHA_AV cmd=\"PUT\">)");
     optionString.append("</YAMAHA_AV>");
 
     string url = string("http://").append(this->hostname).append("/YamahaRemoteControl/ctrl");
 
     string command;
-    command.append("/usr/bin/curl --data \"");
+    command.append(R"(/usr/bin/curl --data ")" );
     command.append(optionString);
-    command.append("\" ");
+    command.append(R"(" )");
     command.append(url);
 
     system(command.c_str());
