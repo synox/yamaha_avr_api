@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <curl/curl.h>
 
 using namespace std;
 
@@ -43,7 +44,8 @@ public:
 class YamahaControl {
 public:
     YamahaControl(string hostname) {
-        url = string("http://").append(hostname).append("/YamahaRemoteControl/ctrl");
+        url = string("http://").append(hostname).append("/YamahaRemoteControl/ctrl").c_str();
+
     }
     void runCommand(Cmd& cmd);
     bool runAction(string keyword) {
@@ -75,18 +77,36 @@ private:
     map<string,Cmd> actions;
 };
 
-void YamahaControl::runCommand(Cmd& cmd) {
 
-    string command = R"(/usr/bin/curl --data ")";
-    command.append(cmd.toString());
-    command.append(R"(" )");
-    command.append(url);
-
-    system(command.c_str());
-    cout << endl;
+size_t write_to_string(void *ptr, size_t size, size_t count, void *stream) {
+  ((string*)stream)->append((char*)ptr, 0, size*count);
+  return size*count;
 }
 
 
+void YamahaControl::runCommand(Cmd& cmd) {
+
+    CURL* curl = curl_easy_init();
+    if(curl) {
+//        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_URL, "http://example.com");
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, cmd.toString().c_str());
+
+        string response;
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_to_string);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+        CURLcode res = curl_easy_perform(curl);
+        if(res != CURLE_OK) {
+            fprintf(stderr, "curl_easy_perform() failed: %s\n",  curl_easy_strerror(res));
+        } else {
+            cout << "response: "<< response << endl;
+        }
+        curl_easy_cleanup(curl);
+    }
+
+}
 
 
 int main(int argc, char** argv)
@@ -98,7 +118,6 @@ int main(int argc, char** argv)
         cout << "       example: 192.168.1.45 up" << endl;
         return -1;
     }
-
 
     char* hostname = argv[1];
     YamahaControl control(hostname);

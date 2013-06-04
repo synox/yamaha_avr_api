@@ -10,9 +10,15 @@ QMAKE_CXXFLAGS = -std=c++11 -stdlib=libc++ -mmacosx-version-min=10.7
 QMAKE_LFLAGS = -std=c++11 -stdlib=libc++ -mmacosx-version-min=10.7
 
 
-INCLUDEPATH += /Applications/Tools/boost_bin/include /Applications/Tools/cpp-netlib/include
-LIBS += -L/Applications/Tools/boost_bin/lib
-LIBS += -lboost_system -lboost_regex -lboost_thread
+# include ibcurl:
+INCLUDEPATH += /usr/local/include /usr/local/opt/openssl/include
+LIBS += -lidn -lcurl -lssl
+
+
+# boost libs
+#INCLUDEPATH += /Applications/Tools/boost_bin/include
+#LIBS += -L/Applications/Tools/boost_bin/lib
+#LIBS += -lboost_system -lboost_regex -lboost_thread
 
 HEADERS+=pugiconfig.hpp pugixml.hpp
 
