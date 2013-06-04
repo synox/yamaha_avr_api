@@ -3,17 +3,18 @@ CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
 
-SOURCES += main.cpp
+SOURCES += main.cpp pugixml.cpp
 
 QMAKE_CXXFLAGS += -std=c++0x
 QMAKE_CXXFLAGS = -std=c++11 -stdlib=libc++ -mmacosx-version-min=10.7
 QMAKE_LFLAGS = -std=c++11 -stdlib=libc++ -mmacosx-version-min=10.7
 
 
-INCLUDEPATH += /Applications/Tools/boost_bin/include
+INCLUDEPATH += /Applications/Tools/boost_bin/include /Applications/Tools/cpp-netlib/include
 LIBS += -L/Applications/Tools/boost_bin/lib
-LIBS += -lboost_system -lboost_filesystem -lboost_regex
+LIBS += -lboost_system -lboost_regex -lboost_thread
 
+HEADERS+=pugiconfig.hpp pugixml.hpp
 
 unix: CONFIG += link_pkgconfig
 unix: PKGCONFIG +=
