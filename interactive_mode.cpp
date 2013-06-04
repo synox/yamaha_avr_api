@@ -15,7 +15,12 @@ void runInteractiveMode(ActionRunner& control)
     }
     keypad (mainwin, TRUE);
 
-    printw("Interactive Mode\n");
+    attron(A_BOLD);
+    mvaddstr(2, 33, "Yamaha Control\n");
+    attroff(A_BOLD);
+
+    mvaddstr(0, 0, "commands: o=on/off, up/down=volume, n=net_radio, 1-5=hdmi, left/right=station");
+
     refresh();
 
     noecho(); // dont' show typed letters
@@ -24,23 +29,30 @@ void runInteractiveMode(ActionRunner& control)
     while((ch = getch()) != 0)
     {
         string action;
+        // volume
         if(ch==3) action ="up";
+        if(ch==2) action ="down";
+
         if(ch==4) action ="left";
         if(ch==5) action ="right";
-        if(ch==2) action ="down";
-        if(ch=='.') action ="dot";
 
-//            printw("\nThe pressed key is ");
-//            attron(A_BOLD);
-//            printw("%d", ch);
-//            attroff(A_BOLD);
+        if(ch=='n') action ="net_radio";
+        if(ch=='o') action ="on_off";
+        if(ch=='1') action ="hdmi1";
+        if(ch=='2') action ="hdmi2";
+        if(ch=='3') action ="hdmi3";
+        if(ch=='4') action ="hdmi4";
+        if(ch=='5') action ="hdmi5";
+
 
         if(!action.empty() ) {
-            clear();
-            printw("running command %s\n",action.c_str());
-            control.runAction(action);
-            clear();
-            printw("command %s done.\n",action.c_str());
+            mvprintw(13,33," - %s - ",action.c_str());
+            string response = control.runAction(action);
+            if(response.empty()) {
+                addstr(" action not found or failed");
+            }
+            move(0, 0);
+            refresh();
         }
     }
 

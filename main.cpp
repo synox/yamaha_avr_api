@@ -59,7 +59,6 @@ public:
         if(iterator!=actions.end()) {
             pair<string,Cmd> pair = *iterator;
             Cmd cmd = pair.second;
-            cout << "running command "<<keyword<<endl;
             return runCommand(cmd);
         } else {
             return string();
@@ -79,6 +78,13 @@ public:
     void loadActions() {
         addAction("down", {"Main_Zone", "Volume", "Lvl"} ,"<Val>Down 2 dB</Val><Exp></Exp><Unit></Unit>");
         addAction("up",   {"Main_Zone", "Volume", "Lvl"} ,"<Val>Up 2 dB</Val><Exp></Exp><Unit></Unit>");
+        addAction("net_radio",   {} ,"<NET_RADIO><List_Control><Direct_Sel>Line_1</Direct_Sel></List_Control></NET_RADIO>");
+        addAction("on_off",   {} ,"<Main_Zone><Power_Control><Power>On/Standby</Power></Power_Control></Main_Zone>");
+        addAction("hdmi1",   {"Main_Zone", "Input", "Input_Sel"} ,"HDMI1");
+        addAction("hdmi2",   {"Main_Zone", "Input", "Input_Sel"} ,"HDMI2");
+        addAction("hdmi3",   {"Main_Zone", "Input", "Input_Sel"} ,"HDMI3");
+        addAction("hdmi4",   {"Main_Zone", "Input", "Input_Sel"} ,"HDMI4");
+        addAction("hdmi5",   {"Main_Zone", "Input", "Input_Sel"} ,"HDMI5");
     }
 
 private:
@@ -118,8 +124,6 @@ string YamahaControl::runCommand(Cmd& cmd) {
         CURLcode res = curl_easy_perform(curl);
         if(res != CURLE_OK) {
             fprintf(stderr, "curl_easy_perform() failed: %s\n",  curl_easy_strerror(res));
-        } else {
-            cout << "response: "<< response << endl;
         }
         curl_slist_free_all(slist);
         curl_easy_cleanup(curl);
