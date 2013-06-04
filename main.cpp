@@ -3,6 +3,9 @@
 #include <vector>
 #include <map>
 #include <curl/curl.h>
+#include "interactive_mode.hpp"
+#include "actionrunner.hpp"
+
 
 using namespace std;
 
@@ -31,7 +34,7 @@ public:
             optionString.append(OPEN_TAG +SLASH + option + CLOSE_TAG);
         });
 
-        optionString.insert(0, R"(<YAMAHA_AV cmd=\"PUT\">)");
+        optionString.insert(0, R"(<YAMAHA_AV cmd="PUT">)");
         optionString.append("</YAMAHA_AV>");
 
         return optionString;
@@ -41,7 +44,7 @@ public:
 /**
  * @brief The YamahaControl class provides an API to the yamaha RX-V_71 (and A_10) series AVR.
  */
-class YamahaControl {
+class YamahaControl: public ActionRunner {
 public:
     YamahaControl(string hostname) {
         url = string("http://").append(hostname).append("/YamahaRemoteControl/ctrl").c_str();
@@ -50,18 +53,21 @@ public:
 
     static size_t readHttpResponse(void *ptr, size_t size, size_t count, string *stream);
 
-    void runCommand(Cmd& cmd);
-    bool runAction(string keyword) {
+    string runCommand(Cmd& cmd);
+    string runAction(string keyword) {
         auto iterator= actions.find(keyword);
         if(iterator!=actions.end()) {
             pair<string,Cmd> pair = *iterator;
             Cmd cmd = pair.second;
             cout << "running command "<<keyword<<endl;
-            runCommand(cmd);
-            return true;
+            return runCommand(cmd);
         } else {
-            return false;
+            return string();
         }
+    }
+
+    void runKey(unsigned char c) {
+        printf("%d\n", c);
     }
 
     void addAction(string keyword, vector<string> options, string value) {
@@ -85,25 +91,29 @@ private:
  * @brief YamahaControl::readHttpResponse reads the http response and writes to the string
  */
 size_t YamahaControl::readHttpResponse(void *ptr, size_t size, size_t count, string *stream) {
-  stream->append((char*)ptr, 0, size*count);
-  return size*count;
+    stream->append((char*)ptr, 0, size*count);
+    return size*count;
 }
 
 
-void YamahaControl::runCommand(Cmd& cmd) {
+string YamahaControl::runCommand(Cmd& cmd) {
+    string response;
 
     CURL* curl = curl_easy_init();
     if(curl) {
+        string xmlString = cmd.toString();
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-//        curl_easy_setopt(curl, CURLOPT_URL, "http://example.com");
-        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, cmd.toString().c_str());
+        curl_easy_setopt(curl, CURLOPT_POST , 1);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, xmlString.c_str());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE  , xmlString.length());
 
-        string response;
+        struct curl_slist *slist = curl_slist_append(NULL, "Content-Type: text/xml; charset=utf-8");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist);
+
+        curl_easy_setopt(curl, CURLOPT_VERBOSE, 0);
+
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response); // used in readHttpResponse
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &readHttpResponse);
-
-
 
         CURLcode res = curl_easy_perform(curl);
         if(res != CURLE_OK) {
@@ -111,9 +121,10 @@ void YamahaControl::runCommand(Cmd& cmd) {
         } else {
             cout << "response: "<< response << endl;
         }
+        curl_slist_free_all(slist);
         curl_easy_cleanup(curl);
     }
-
+    return response;
 }
 
 
@@ -121,20 +132,27 @@ int main(int argc, char** argv)
 {
     if (argc != 3)
     {
-        cout << "Usage: " << argv[0] << " <hostname> <action>" << endl;
+        cout << "Usage: " << argv[0] << " <hostname> <action/-i>" << endl;
         cout << "       sets the value on the yamaha device" << endl;
         cout << "       example: 192.168.1.45 up" << endl;
+        cout << "       use action -i for interactive mode" << endl;
         return -1;
     }
 
     char* hostname = argv[1];
+    string action = argv[2];
+
     YamahaControl control(hostname);
     control.loadActions();
 
-
-    // name
-    string action = std::string(argv[2]);
-    control.runAction(action);
+    // interative
+    if(action.compare("-i")==0) {
+        runInteractiveMode(control);
+    } else {
+        // name
+        string action = std::string(argv[2]);
+        control.runAction(action);
+    }
 
     return 0;
 }
