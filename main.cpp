@@ -72,10 +72,10 @@ public:
     }
 
     Status* getStatus() {
-                string basicResponse = run("<Main_Zone><Basic_Status>GetParam</Basic_Status></Main_Zone>", "GET");
-                string parseResultNet = run("<NET_RADIO><Play_Info>GetParam</Play_Info></NET_RADIO>", "GET");
+        string basicResponse = run("<Main_Zone><Basic_Status>GetParam</Basic_Status></Main_Zone>", "GET");
+        string netResponse = run("<NET_RADIO><Play_Info>GetParam</Play_Info></NET_RADIO>", "GET");
 
-//        string basicResponse = R"(<YAMAHA_AV rsp="GET" RC="0"><Main_Zone><Basic_Status><Power_Control><Power>On</Power><Sleep>Off</Sleep></Power_Control><Volume><Lvl><Val>-480</Val><Exp>1</Exp><Unit>dB</Unit></Lvl><Mute>Off</Mute></Volume><Input><Input_Sel>NET RADIO</Input_Sel></Input></Basic_Status></Main_Zone></YAMAHA_AV>)";
+        //        string basicResponse = R"(<YAMAHA_AV rsp="GET" RC="0"><Main_Zone><Basic_Status><Power_Control><Power>On</Power><Sleep>Off</Sleep></Power_Control><Volume><Lvl><Val>-480</Val><Exp>1</Exp><Unit>dB</Unit></Lvl><Mute>Off</Mute></Volume><Input><Input_Sel>NET RADIO</Input_Sel></Input></Basic_Status></Main_Zone></YAMAHA_AV>)";
 
         try {
             pugi::xml_document doc;
@@ -92,7 +92,7 @@ public:
                 cerr << "can not load xml buffer for xpath" << parseResult.description() << endl;
             }
 
-            pugi::xml_parse_result parseResultNet =doc.load_buffer(basicResponse.c_str(), basicResponse.length());
+            pugi::xml_parse_result parseResultNet =doc.load_buffer(netResponse.c_str(), basicResponse.length());
             if(parseResultNet)  {
                 status.station = doc.select_single_node("//NET_RADIO/Play_Info/Meta_Info/Station").node().child_value();
             } else {
@@ -160,7 +160,13 @@ void runInteractiveMode(YamahaControl& control)
     }
     noecho(); // dont' show typed letters
     keypad (mainwin, TRUE);
-    mvaddstr(0, 0, "commands: o=on/off, up/down/m=volume, n=net_radio, 1-5=hdmi, left/right=station");
+    mvaddstr(0, 0, "commands: ");
+    addch('O'  | A_UNDERLINE); printw("n/off, ");
+    addch('^'  | A_UNDERLINE); addch('v'  | A_UNDERLINE); printw("up/down, ");
+    addch('m'  | A_UNDERLINE); printw("ute, ");
+    addch('n'  | A_UNDERLINE); printw("et radio, ");
+    addch('<'  | A_UNDERLINE); addch('>'  | A_UNDERLINE); printw("next/prev station");
+
     attron(A_BOLD);
     mvaddstr(2, 33, "Yamaha Control\n");
     attroff(A_BOLD);
@@ -191,19 +197,21 @@ void runInteractiveMode(YamahaControl& control)
         }
 
         if(!name.empty()) {
-            mvprintw(12,33," - %s - ",name.c_str());
+            mvprintw(12,33," - %s - \n",name.c_str());
         }
 
-        if(!r.empty()) {
-            mvprintw(14,10,"%s\n", r.c_str());
-        } else {
-            Status* status = control.getStatus();
-            mvprintw(6,25,"%10s:  %s\n", "Power",status->power.c_str());
-            mvprintw(7,25,"%10s:  %s\n", "Volume", status->volume.c_str());
-            mvprintw(7,25,"%10s:  %s\n", "Mute", status->mute.c_str());
-            mvprintw(8,25,"%10s:  %s\n", "Input", status->source.c_str());
-            mvprintw(9,25,"%10s:  %s\n", "Station", status->station.c_str());
-        }
+
+        mvprintw(14,10,"%s\n", r.c_str());
+        refresh();
+
+
+
+        Status* status = control.getStatus();
+        mvprintw(6,25,"%10s:  %s\n", "Power",status->power.c_str());
+        mvprintw(7,25,"%10s:  %s\n", "Volume", status->volume.c_str());
+        mvprintw(7,25,"%10s:  %s\n", "Mute", status->mute.c_str());
+        mvprintw(8,25,"%10s:  %s\n", "Input", status->source.c_str());
+        mvprintw(9,25,"%10s:  %s\n", "Station", status->station.c_str());
 
         move(0, 0);
         refresh();
