@@ -22,7 +22,7 @@ LIBS += -lidn -lcurl -lssl -lncurses
 #LIBS += -lboost_system -lboost_regex -lboost_thread
 
 HEADERS+=pugiconfig.hpp pugixml.hpp interactive_mode.hpp \
-    actionrunner.hpp
+    actionrunner.hpp status.hpp
 
 unix: CONFIG += link_pkgconfig
 unix: PKGCONFIG +=

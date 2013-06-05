@@ -11,14 +11,19 @@ using namespace std;
 
 
 class Cmd {
-private:
+protected:
     vector<string> options;
     string value;
     const string OPEN_TAG  = "<";
     const string CLOSE_TAG  = ">";
     const string SLASH  = "/";
+    string method;
 public:
-    Cmd(vector<string> options, string value): options(options), value(value) {}
+    Cmd(vector<string> options, string value, string method = "PUT")  {
+        this->options=options;
+        this->value=value;
+        this->method=method;
+    }
 
     string toString() {
         // work from inside to outside: first value, then last option, second last option, and so on.
@@ -34,12 +39,17 @@ public:
             optionString.append(OPEN_TAG +SLASH + option + CLOSE_TAG);
         });
 
-        optionString.insert(0, R"(<YAMAHA_AV cmd="PUT">)");
+        string prefix = R"(<YAMAHA_AV cmd=")";
+        prefix.append(method);
+        prefix.append(R"(">)");
+
+        optionString.insert(0, prefix);
         optionString.append("</YAMAHA_AV>");
 
         return optionString;
     }
 };
+
 
 /**
  * @brief The YamahaControl class provides an API to the yamaha RX-V_71 (and A_10) series AVR.
@@ -65,9 +75,6 @@ public:
         }
     }
 
-    void runKey(unsigned char c) {
-        printf("%d\n", c);
-    }
 
     void addAction(string keyword, vector<string> options, string value) {
         Cmd cmd(options,value);
@@ -75,11 +82,18 @@ public:
         actions.insert(pair);
     }
 
+    Status getStatus() {
+        Status s;
+        return s;
+    }
+
     void loadActions() {
         addAction("down", {"Main_Zone", "Volume", "Lvl"} ,"<Val>Down 2 dB</Val><Exp></Exp><Unit></Unit>");
         addAction("up",   {"Main_Zone", "Volume", "Lvl"} ,"<Val>Up 2 dB</Val><Exp></Exp><Unit></Unit>");
-        addAction("net_radio",   {} ,"<NET_RADIO><List_Control><Direct_Sel>Line_1</Direct_Sel></List_Control></NET_RADIO>");
+        addAction("mute_on_off",   {"Main_Zone", "Volume", "Mute"} ,"On/Off");
+        addAction("net_radio_0",   {"NET_RADIO","List_Control","Direct_Sel"} ,"Line_1");
         addAction("on_off",   {} ,"<Main_Zone><Power_Control><Power>On/Standby</Power></Power_Control></Main_Zone>");
+        addAction("net_radio",   {"Main_Zone", "Input", "Input_Sel"} ,"NET");
         addAction("hdmi1",   {"Main_Zone", "Input", "Input_Sel"} ,"HDMI1");
         addAction("hdmi2",   {"Main_Zone", "Input", "Input_Sel"} ,"HDMI2");
         addAction("hdmi3",   {"Main_Zone", "Input", "Input_Sel"} ,"HDMI3");
@@ -116,6 +130,7 @@ string YamahaControl::runCommand(Cmd& cmd) {
         struct curl_slist *slist = curl_slist_append(NULL, "Content-Type: text/xml; charset=utf-8");
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist);
 
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT , 1L);
         curl_easy_setopt(curl, CURLOPT_VERBOSE, 0);
 
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response); // used in readHttpResponse

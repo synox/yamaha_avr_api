@@ -19,7 +19,7 @@ void runInteractiveMode(ActionRunner& control)
     mvaddstr(2, 33, "Yamaha Control\n");
     attroff(A_BOLD);
 
-    mvaddstr(0, 0, "commands: o=on/off, up/down=volume, n=net_radio, 1-5=hdmi, left/right=station");
+    mvaddstr(0, 0, "commands: o=on/off, up/down/m=volume, n=net_radio, 1-5=hdmi, left/right=station");
 
     refresh();
 
@@ -32,11 +32,14 @@ void runInteractiveMode(ActionRunner& control)
         // volume
         if(ch==3) action ="up";
         if(ch==2) action ="down";
+        if(ch=='m') action ="mute_on_off";
 
         if(ch==4) action ="left";
         if(ch==5) action ="right";
 
         if(ch=='n') action ="net_radio";
+        if(ch=='0') action ="net_radio_0";
+
         if(ch=='o') action ="on_off";
         if(ch=='1') action ="hdmi1";
         if(ch=='2') action ="hdmi2";
@@ -47,10 +50,14 @@ void runInteractiveMode(ActionRunner& control)
 
         if(!action.empty() ) {
             mvprintw(13,33," - %s - ",action.c_str());
+            refresh();
             string response = control.runAction(action);
             if(response.empty()) {
                 addstr(" action not found or failed");
+            } else {
+                Status status = control.getStatus();
             }
+            addstr("\n");
             move(0, 0);
             refresh();
         }
