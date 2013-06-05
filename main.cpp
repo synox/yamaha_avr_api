@@ -3,9 +3,9 @@
 #include <vector>
 #include <map>
 #include <curl/curl.h>
-#include "interactive_mode.hpp"
-#include "actionrunner.hpp"
 #include <ncurses.h>
+#include "pugixml.hpp"
+#include "status.hpp"
 
 
 using namespace std;
@@ -65,9 +65,53 @@ class YamahaControl {
 private:
     string url;
     Http http;
+    Status status;
 public:
     YamahaControl(char* hostname) {
         url = string("http://").append(hostname).append("/YamahaRemoteControl/ctrl").c_str();
+    }
+
+    Status* getStatus() {
+                string basicResponse = run("<Main_Zone><Basic_Status>GetParam</Basic_Status></Main_Zone>", "GET");
+                string parseResultNet = run("<NET_RADIO><Play_Info>GetParam</Play_Info></NET_RADIO>", "GET");
+
+//        string basicResponse = R"(<YAMAHA_AV rsp="GET" RC="0"><Main_Zone><Basic_Status><Power_Control><Power>On</Power><Sleep>Off</Sleep></Power_Control><Volume><Lvl><Val>-480</Val><Exp>1</Exp><Unit>dB</Unit></Lvl><Mute>Off</Mute></Volume><Input><Input_Sel>NET RADIO</Input_Sel></Input></Basic_Status></Main_Zone></YAMAHA_AV>)";
+
+        try {
+            pugi::xml_document doc;
+            pugi::xml_parse_result parseResult =doc.load_buffer(basicResponse.c_str(), basicResponse.length());
+            if(parseResult)  {
+                status.power = doc.select_single_node("//Main_Zone/Basic_Status/Power_Control/Power").node().child_value();
+                status.volume = doc.select_single_node("//Main_Zone/Basic_Status/Volume/Lvl/Val").node().child_value();
+                status.mute = doc.select_single_node("//Main_Zone/Basic_Status/Volume/Mute").node().child_value();
+                status.source = doc.select_single_node("//Main_Zone/Basic_Status/Input/Input_Sel").node().child_value();
+
+                // TODO: parse xml
+                status.station = doc.select_single_node("//NET_RADIO/Play_Info/Meta_Info/Station").node().child_value();
+            } else {
+                cerr << "can not load xml buffer for xpath" << parseResult.description() << endl;
+            }
+
+            pugi::xml_parse_result parseResultNet =doc.load_buffer(basicResponse.c_str(), basicResponse.length());
+            if(parseResultNet)  {
+                status.station = doc.select_single_node("//NET_RADIO/Play_Info/Meta_Info/Station").node().child_value();
+            } else {
+                cerr << "can not load xml buffer NET_RADIO for xpath" << parseResultNet.description() << endl;
+            }
+
+
+
+
+        } catch (pugi::xpath_exception e) {
+            cerr << "can not parse status" << e.what() << endl;
+            return NULL;
+        }
+
+        //        status.power = "On";
+        //        status.source = "NET";
+        //        status.volume = "-50.0 dB";
+        //        status.station = "ABC";
+        return &status;
     }
 
     string selectInput(string inputName, int suffix) {
@@ -143,16 +187,22 @@ void runInteractiveMode(YamahaControl& control)
         case '3': name="hdmi3";r=control.selectInput("HDMI",3);  break;
         case '4': name="hdmi4";r=control.selectInput("HDMI",4);  break;
         case '5': name="hdmi5";r=control.selectInput("HDMI",5);  break;
+        case ' ': name="refresh";r=""; break;
         }
 
         if(!name.empty()) {
-            mvprintw(10,33," - %s - ",name.c_str());
+            mvprintw(12,33," - %s - ",name.c_str());
         }
 
         if(!r.empty()) {
             mvprintw(14,10,"%s\n", r.c_str());
         } else {
-//            Status status = control.getStatus();
+            Status* status = control.getStatus();
+            mvprintw(6,25,"%10s:  %s\n", "Power",status->power.c_str());
+            mvprintw(7,25,"%10s:  %s\n", "Volume", status->volume.c_str());
+            mvprintw(7,25,"%10s:  %s\n", "Mute", status->mute.c_str());
+            mvprintw(8,25,"%10s:  %s\n", "Input", status->source.c_str());
+            mvprintw(9,25,"%10s:  %s\n", "Station", status->station.c_str());
         }
 
         move(0, 0);

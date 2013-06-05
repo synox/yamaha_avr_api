@@ -9,6 +9,7 @@ public:
     string volume;
     string source;
     string station;
+    string mute;
 };
 
 #endif // STATUS_H

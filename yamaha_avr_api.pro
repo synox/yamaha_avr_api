@@ -3,8 +3,7 @@ CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
 
-SOURCES += main.cpp pugixml.cpp \
-    interactive_mode.cpp
+SOURCES += main.cpp pugixml.cpp
 
 QMAKE_CXXFLAGS += -std=c++0x
 QMAKE_CXXFLAGS = -std=c++11 -stdlib=libc++ -mmacosx-version-min=10.7
@@ -21,8 +20,8 @@ LIBS += -lidn -lcurl -lssl -lncurses
 #LIBS += -L/Applications/Tools/boost_bin/lib
 #LIBS += -lboost_system -lboost_regex -lboost_thread
 
-HEADERS+=pugiconfig.hpp pugixml.hpp interactive_mode.hpp \
-    actionrunner.hpp status.hpp
+HEADERS+=pugiconfig.hpp pugixml.hpp \
+    status.hpp
 
 unix: CONFIG += link_pkgconfig
 unix: PKGCONFIG +=
