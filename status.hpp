@@ -6,7 +6,7 @@ using namespace std;
 class Status {
 public:
     string power;
-    string volume;
+    double volume;
     string source;
     string station;
     string mute;

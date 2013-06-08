@@ -122,7 +122,9 @@ public:
             pugi::xml_parse_result parseResult =doc.load_buffer(basicResponse.c_str(), basicResponse.length());
             if(parseResult)  {
                 status.power = doc.select_single_node("//Main_Zone/Basic_Status/Power_Control/Power").node().child_value();
-                status.volume = doc.select_single_node("//Main_Zone/Basic_Status/Volume/Lvl/Val").node().child_value();
+                const char* volumeString= doc.select_single_node("//Main_Zone/Basic_Status/Volume/Lvl/Val").node().child_value();
+                status.volume = std::stod(volumeString) / 10;
+
                 status.mute = doc.select_single_node("//Main_Zone/Basic_Status/Volume/Mute").node().child_value();
                 status.source = doc.select_single_node("//Main_Zone/Basic_Status/Input/Input_Sel").node().child_value();
 
@@ -231,7 +233,7 @@ void runInteractiveMode(YamahaControl& control)
             case 'm': name="mute_on_off";r=control.run( {"Main_Zone", "Volume", "Mute"},"On/Off", "PUT");  break;
             case '0': name="net_radio_0";;  break;
             case 'o': name="on_off";r=control.run( "<Main_Zone><Power_Control><Power>On/Standby</Power></Power_Control></Main_Zone>", "PUT");  break;
-            case 'n': name="net_radio"; r=control.selectInput("NET");
+            case 'n': name="net_radio"; r=control.selectInput("NET RADIO");
                 r = control.shiftNetStation(0); // load init station
                 break;
             case '1': name="hdmi1";r=control.selectInput("HDMI",1);  break;
@@ -260,7 +262,7 @@ void runInteractiveMode(YamahaControl& control)
         } else {
             mvprintw(6,25,"%10s:  %s\n", "Power",status->power.c_str());
         }
-        mvprintw(7,25,"%10s:  %s\n", "Volume", status->volume.c_str());
+        mvprintw(7,25,"%10s:  %2.1f\n", "Volume", status->volume);
         //        mvprintw(7,25,"%10s:  %s\n", "Mute", status->mute.c_str());
         mvprintw(8,25,"%10s:  %s\n", "Input", status->source.c_str());
         mvprintw(9,25,"%10s:  %s\n", "Station", status->station.c_str());
