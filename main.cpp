@@ -10,45 +10,84 @@
 
 using namespace std;
 
+#define BUFFER_SIZE (256 * 1024) /* 256kB */
+typedef struct point point_type;
+struct http_response {
+    char data [BUFFER_SIZE];
+    int pos = 0;
+};
+
+
+
 class Http {
 private:
     CURL* curl;
     struct curl_slist* slist;
     string response;
 
-    /**
-     * @brief readHttpResponse reads the http response and writes to the string
-     */
-    size_t readHttpResponse(void *ptr, size_t size, size_t count, string *stream) {
-        stream->append((char*)ptr, 0, size*count);
-        return size*count;
+    static size_t read_response( void *ptr, size_t size, size_t nmemb, void *stream) {
+
+        struct http_response* result = (struct http_response*)stream;
+
+        /* Will we overflow on this write? */
+        if(result->pos + size * nmemb >= BUFFER_SIZE - 1) {
+            fprintf(stderr, "curl error: too small buffer\n");
+            return 0;
+        }
+
+        /* Copy curl's stream buffer into our own buffer */
+        memcpy(result->data + result->pos, ptr, size * nmemb);
+
+        /* Advance the position */
+        result->pos += size * nmemb;
+
+        return size * nmemb;
     }
+
+
 public:
     Http() {
         curl = curl_easy_init();
         slist = curl_slist_append(NULL, "Content-Type: text/xml; charset=utf-8");
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist);
         curl_easy_setopt(curl, CURLOPT_TIMEOUT , 1L);
-        curl_easy_setopt(curl, CURLOPT_VERBOSE, 0);
+        curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
 
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response); // used in readHttpResponse
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &Http::readHttpResponse);
-
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, read_response);
     }
     ~Http() {
         curl_slist_free_all(slist);
         curl_easy_cleanup(curl);
     }
-    bool request(string& url, string& xmlString) {
+    bool request(string& url, string xmlString) {
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_POST , 1);
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, xmlString.c_str());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE  , xmlString.length());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE  , xmlString.size());
+
+        // Create the write buffer
+        struct http_response write_result;
+
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &write_result);
 
         CURLcode res = curl_easy_perform(curl);
+        /* null terminate the string */
+        write_result.data[write_result.pos] = '\0';
+
         if(res != CURLE_OK) {
             response = string("curl_easy_perform() failed: ") +  curl_easy_strerror(res);
             return false;
+        }
+
+
+        long http_code = 0;
+        curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &http_code);
+        if (http_code == 200 && res != CURLE_ABORTED_BY_CALLBACK)  {
+            //Succeeded
+            response = string(write_result.data);
+        }  else        {
+            //Failed
+            response = string("curl_easy_perform() failed: http response code: ") +  std::to_string(http_code) + string(write_result.data);
         }
         return true;
     }
@@ -66,6 +105,7 @@ private:
     string url;
     Http http;
     Status status;
+    int currentNetRadioStation=1;
 public:
     YamahaControl(char* hostname) {
         url = string("http://").append(hostname).append("/YamahaRemoteControl/ctrl").c_str();
@@ -89,14 +129,16 @@ public:
                 // TODO: parse xml
                 status.station = doc.select_single_node("//NET_RADIO/Play_Info/Meta_Info/Station").node().child_value();
             } else {
-                cerr << "can not load xml buffer for xpath" << parseResult.description() << endl;
+//                cerr << "status xpath error: " << parseResult.description() << endl;
             }
 
+            // <YAMAHA_AV rsp="GET" RC="0"><NET_RADIO><Play_Info><Feature_Availability>Ready</Feature_Availability><Playback_Info>Play</Playback_Info><Meta_Info><Station>SRF 3</Station><Album></Album><Song>Jetzt: World Music Special - Der Okzitanier-Blues</Song></Meta_Info><Album_ART><URL>/YamahaRemoteControl/AlbumART/AlbumART.ymf</URL><ID>25</ID><Format>YMF</Format></Album_ART></Play_Info></NET_RADIO></YAMAHA_AV>
             pugi::xml_parse_result parseResultNet =doc.load_buffer(netResponse.c_str(), basicResponse.length());
             if(parseResultNet)  {
-                status.station = doc.select_single_node("//NET_RADIO/Play_Info/Meta_Info/Station").node().child_value();
+                pugi::xpath_node node = doc.select_single_node("//NET_RADIO/Play_Info/Meta_Info/Station");
+                status.station = node.node().child_value();
             } else {
-                cerr << "can not load xml buffer NET_RADIO for xpath" << parseResultNet.description() << endl;
+//                cout << "NET_RADIO xpath error: " << parseResultNet.description() << endl;
             }
 
 
@@ -107,10 +149,6 @@ public:
             return NULL;
         }
 
-        //        status.power = "On";
-        //        status.source = "NET";
-        //        status.volume = "-50.0 dB";
-        //        status.station = "ABC";
         return &status;
     }
 
@@ -121,6 +159,11 @@ public:
 
     string selectInput(string inputName) {
         return run({"Main_Zone", "Input", "Input_Sel"} ,inputName, "PUT");
+    }
+
+    string shiftNetStation(int amount) {
+        currentNetRadioStation += amount;
+        return run( {"NET_RADIO","List_Control","Direct_Sel"} ,string("Line_")+std::to_string(currentNetRadioStation), "PUT");
     }
 
     string run(vector<string> options, string value, const char* method) {
@@ -172,48 +215,56 @@ void runInteractiveMode(YamahaControl& control)
     attroff(A_BOLD);
     refresh();
 
+    timeout(1000); //ms
     char ch;
     while((ch = getch()) != 0)
     {
+
         string r;
         string name;
-        switch(ch) {
-        case 3: name="up"; r=control.run( {"Main_Zone", "Volume", "Lvl"} ,"<Val>Up 2 dB</Val><Exp></Exp><Unit></Unit>", "PUT");  break;
-        case 2: name="down";r=control.run( {"Main_Zone", "Volume", "Lvl"} ,"<Val>Down 2 dB</Val><Exp></Exp><Unit></Unit>", "PUT");  break;
+        if(ch != ERR) {
+            switch(ch) {
+            case 3: name="up"; r=control.run( {"Main_Zone", "Volume", "Lvl"} ,"<Val>Up 2 dB</Val><Exp></Exp><Unit></Unit>", "PUT");  break;
+            case 2: name="down";r=control.run( {"Main_Zone", "Volume", "Lvl"} ,"<Val>Down 2 dB</Val><Exp></Exp><Unit></Unit>", "PUT");  break;
+            case 4: name="next"; control.shiftNetStation(-1);break;
+            case 5: name="next"; control.shiftNetStation(1); break;
+            case 'm': name="mute_on_off";r=control.run( {"Main_Zone", "Volume", "Mute"},"On/Off", "PUT");  break;
+            case '0': name="net_radio_0";;  break;
+            case 'o': name="on_off";r=control.run( "<Main_Zone><Power_Control><Power>On/Standby</Power></Power_Control></Main_Zone>", "PUT");  break;
+            case 'n': name="net_radio"; r=control.selectInput("NET");
+                r = control.shiftNetStation(0); // load init station
+                break;
+            case '1': name="hdmi1";r=control.selectInput("HDMI",1);  break;
+            case '2': name="hdmi2";r=control.selectInput("HDMI",2);  break;
+            case '3': name="hdmi3";r=control.selectInput("HDMI",3);  break;
+            case '4': name="hdmi4";r=control.selectInput("HDMI",4);  break;
+            case '5': name="hdmi5";r=control.selectInput("HDMI",5);  break;
+            case ' ': name="refresh";r=""; break;
+            default:
+                mvprintw(12,33," - key: %d - %s\n",ch, keyname( ch ));
+                continue;
+            }
 
-        case 'm': name="mute_on_off";r=control.run( {"Main_Zone", "Volume", "Mute"},"On/Off", "PUT");  break;
-        case '0': name="net_radio_0";;  break;
-        case 'o': name="on_off";r=control.run( "<Main_Zone><Power_Control><Power>On/Standby</Power></Power_Control></Main_Zone>", "PUT");  break;
-        case 'n': name="net_radio";
-            r=control.selectInput("NET");
-            r=control.run( {"NET_RADIO","List_Control","Direct_Sel"} ,"Line_1", "PUT");
-            break;
-        case '1': name="hdmi1";r=control.selectInput("HDMI",1);  break;
-        case '2': name="hdmi2";r=control.selectInput("HDMI",2);  break;
-        case '3': name="hdmi3";r=control.selectInput("HDMI",3);  break;
-        case '4': name="hdmi4";r=control.selectInput("HDMI",4);  break;
-        case '5': name="hdmi5";r=control.selectInput("HDMI",5);  break;
-        case ' ': name="refresh";r=""; break;
+            if(!name.empty()) {
+                mvprintw(15,33," - %s -\n",name.c_str());
+            }
+        } else {
+            // remove old text
+            mvprintw(12,33,"\n");
         }
-
-        if(!name.empty()) {
-            mvprintw(12,33," - %s - \n",name.c_str());
-        }
-
-
-        mvprintw(14,10,"%s\n", r.c_str());
-        refresh();
-
 
 
         Status* status = control.getStatus();
-        mvprintw(6,25,"%10s:  %s\n", "Power",status->power.c_str());
+        if(status->mute.compare("On")==0){
+            mvprintw(6,25,"%10s:  %s\n", "Power","Mute");
+        } else {
+            mvprintw(6,25,"%10s:  %s\n", "Power",status->power.c_str());
+        }
         mvprintw(7,25,"%10s:  %s\n", "Volume", status->volume.c_str());
-        mvprintw(7,25,"%10s:  %s\n", "Mute", status->mute.c_str());
+        //        mvprintw(7,25,"%10s:  %s\n", "Mute", status->mute.c_str());
         mvprintw(8,25,"%10s:  %s\n", "Input", status->source.c_str());
         mvprintw(9,25,"%10s:  %s\n", "Station", status->station.c_str());
 
-        move(0, 0);
         refresh();
     }
 
