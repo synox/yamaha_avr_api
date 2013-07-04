@@ -1,4 +1,4 @@
-yamaha avr controle
+yamaha avr control
 ==============
 
 a quick and dirty c++ console application for yamaha receivers. It allows to control the main input sources, the power and volume, and the web radio stations. 
