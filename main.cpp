@@ -87,7 +87,8 @@ public:
             response = string(write_result.data);
         }  else        {
             //Failed
-            response = string("curl_easy_perform() failed: http response code: ") +  std::to_string(http_code) + string(write_result.data);
+            string err = string("curl_easy_perform() failed: http response code: ") +  std::to_string(http_code) + string(write_result.data);
+            throw err;
         }
         return true;
     }
@@ -112,18 +113,24 @@ public:
     }
 
     Status* getStatus() {
-        string basicResponse = run("<Main_Zone><Basic_Status>GetParam</Basic_Status></Main_Zone>", "GET");
-        string netResponse = run("<NET_RADIO><Play_Info>GetParam</Play_Info></NET_RADIO>", "GET");
+        try {
+            string basicResponse = run("<Main_Zone><Basic_Status>GetParam</Basic_Status></Main_Zone>", "GET");
+            string netResponse = run("<NET_RADIO><Play_Info>GetParam</Play_Info></NET_RADIO>", "GET");
+
+
 
         //        string basicResponse = R"(<YAMAHA_AV rsp="GET" RC="0"><Main_Zone><Basic_Status><Power_Control><Power>On</Power><Sleep>Off</Sleep></Power_Control><Volume><Lvl><Val>-480</Val><Exp>1</Exp><Unit>dB</Unit></Lvl><Mute>Off</Mute></Volume><Input><Input_Sel>NET RADIO</Input_Sel></Input></Basic_Status></Main_Zone></YAMAHA_AV>)";
 
-        try {
             pugi::xml_document doc;
             pugi::xml_parse_result parseResult =doc.load_buffer(basicResponse.c_str(), basicResponse.length());
             if(parseResult)  {
                 status.power = doc.select_single_node("//Main_Zone/Basic_Status/Power_Control/Power").node().child_value();
                 const char* volumeString= doc.select_single_node("//Main_Zone/Basic_Status/Volume/Lvl/Val").node().child_value();
-                status.volume = std::stod(volumeString) / 10;
+                if(strlen(volumeString)>0) {
+                    status.volume = std::stod(volumeString) / 10;
+                } else {
+                    printf("parse volume error: %s", basicResponse.c_str());
+                }
 
                 status.mute = doc.select_single_node("//Main_Zone/Basic_Status/Volume/Mute").node().child_value();
                 status.source = doc.select_single_node("//Main_Zone/Basic_Status/Input/Input_Sel").node().child_value();
@@ -143,11 +150,11 @@ public:
 //                cout << "NET_RADIO xpath error: " << parseResultNet.description() << endl;
             }
 
-
-
-
         } catch (pugi::xpath_exception e) {
             cerr << "can not parse status" << e.what() << endl;
+            return NULL;
+        } catch (char* e) {
+            cerr << "can not parse status" << e << endl;
             return NULL;
         }
 
