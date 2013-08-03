@@ -6,6 +6,7 @@
 #include <ncurses.h>
 #include "pugixml.hpp"
 #include "status.hpp"
+#include <unistd.h>
 
 
 using namespace std;
@@ -64,6 +65,9 @@ public:
         curl_easy_setopt(curl, CURLOPT_POST , 1);
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, xmlString.c_str());
         curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE  , xmlString.size());
+
+        // debug proxy:
+        //curl_easy_setopt(curl, CURLOPT_PROXY, "127.0.0.1:8888");
 
         // Create the write buffer
         struct http_response write_result;
@@ -175,6 +179,18 @@ public:
         return run( {"NET_RADIO","List_Control","Direct_Sel"} ,string("Line_")+std::to_string(currentNetRadioStation), "PUT");
     }
 
+    /**
+     * @brief makes sure the control is positioned in the bookmarks menu. sometimes it goes to other menues, which is not preferable.
+     * @return
+     */
+    string navigateToNetStationBookmarks() {
+        // go back a few times
+        for(int i =0; i<6; i++) { // 6 is the average deeph of the menu
+            run( {"NET_RADIO","List_Control","Cursor"}, "Return", "PUT");
+        }
+        // select bookmarks
+        return run( {"NET_RADIO","List_Control","Direct_Sel"}, "Line_1", "PUT");
+    }
     string run(vector<string> options, string value, const char* method) {
         string optionString;
 
@@ -217,7 +233,7 @@ void runInteractiveMode(YamahaControl& control)
     addch('^'  | A_UNDERLINE); addch('v'  | A_UNDERLINE); printw("up/down, ");
     addch('m'  | A_UNDERLINE); printw("ute, ");
     addch('n'  | A_UNDERLINE); printw("et radio, ");
-    addch('<'  | A_UNDERLINE); addch('>'  | A_UNDERLINE); printw("next/prev station");
+    addch('<'  | A_UNDERLINE); addch('>'  | A_UNDERLINE); printw("next/prev station (j/k)");
 
     attron(A_BOLD);
     mvaddstr(2, 33, "Yamaha Control\n");
@@ -235,12 +251,16 @@ void runInteractiveMode(YamahaControl& control)
             switch(ch) {
             case 3: name="up"; r=control.run( {"Main_Zone", "Volume", "Lvl"} ,"<Val>Up 2 dB</Val><Exp></Exp><Unit></Unit>", "PUT");  break;
             case 2: name="down";r=control.run( {"Main_Zone", "Volume", "Lvl"} ,"<Val>Down 2 dB</Val><Exp></Exp><Unit></Unit>", "PUT");  break;
-            case 4: name="next"; control.shiftNetStation(-1);break;
+            case 'k':
+            case 4: name="prev"; control.shiftNetStation(-1);break;
+            case 'j':
             case 5: name="next"; control.shiftNetStation(1); break;
             case 'm': name="mute_on_off";r=control.run( {"Main_Zone", "Volume", "Mute"},"On/Off", "PUT");  break;
             case '0': name="net_radio_0";;  break;
             case 'o': name="on_off";r=control.run( "<Main_Zone><Power_Control><Power>On/Standby</Power></Power_Control></Main_Zone>", "PUT");  break;
             case 'n': name="net_radio"; r=control.selectInput("NET RADIO");
+                r = control.navigateToNetStationBookmarks();
+                sleep(2); // navigate has to load channel list first
                 r = control.shiftNetStation(0); // load init station
                 break;
             case '1': name="hdmi1";r=control.selectInput("HDMI",1);  break;
