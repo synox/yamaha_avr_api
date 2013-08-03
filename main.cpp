@@ -259,8 +259,9 @@ void runInteractiveMode(YamahaControl& control)
             case '0': name="net_radio_0";;  break;
             case 'o': name="on_off";r=control.run( "<Main_Zone><Power_Control><Power>On/Standby</Power></Power_Control></Main_Zone>", "PUT");  break;
             case 'n': name="net_radio"; r=control.selectInput("NET RADIO");
+                // init net_radio to the first bookmark
                 r = control.navigateToNetStationBookmarks();
-                sleep(2); // navigate has to load channel list first
+                sleep(2); // navigate has to load the channel list first
                 r = control.shiftNetStation(0); // load init station
                 break;
             case '1': name="hdmi1";r=control.selectInput("HDMI",1);  break;
