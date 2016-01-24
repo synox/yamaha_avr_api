@@ -19,3 +19,4 @@ If you are interested in the required commands, these sources will give you more
 - https://yavc.codeplex.com/SourceControl/latest#1120666
 - http://www.heimkino-praxis.com/2014/yamaha-netzwerk-steuerung/
 - https://github.com/PSeitz/yamaha-nodejs
+- https://github.com/graememorgan/yamaha
