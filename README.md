@@ -18,3 +18,4 @@ If you are interested in the required commands, these sources will give you more
 - http://fhem.de/fhem.html#Download (contains some code to control yamaha av)
 - https://yavc.codeplex.com/SourceControl/latest#1120666
 - http://www.heimkino-praxis.com/2014/yamaha-netzwerk-steuerung/
+- https://github.com/PSeitz/yamaha-nodejs
