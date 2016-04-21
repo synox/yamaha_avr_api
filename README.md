@@ -1,7 +1,9 @@
 yamaha avr control
 ==============
 
-a quick and dirty c++ console application for yamaha receivers. It allows to control the main input sources, the power and volume, and the web radio stations. 
+a quick and *dirty* c++ console application for yamaha receivers. It allows to control the main input sources, the power and volume, and the web radio stations. It contains some hints how to use the yamaha api. 
+
+=> You should use https://github.com/PSeitz/yamaha-nodejs instead. 
 
 
 -------
